@@ -5,11 +5,8 @@
     { "src": "app.js", "use": "@vercel/static" },
     { "src": "styles.css", "use": "@vercel/static" },
     { "src": "favicon.svg", "use": "@vercel/static" },
-    { "src": "api/[...path].js", "use": "@vercel/node", "config": { "maxDuration": 30 } }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/[...path].js" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "src": "api/price/php.js", "use": "@vercel/node", "config": { "maxDuration": 30 } },
+    { "src": "api/miner/[address]/[...endpoint].js", "use": "@vercel/node", "config": { "maxDuration": 30 } },
+    { "src": "api/history/[address].js", "use": "@vercel/node", "config": { "maxDuration": 30 } }
   ]
 }
