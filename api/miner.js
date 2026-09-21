@@ -4,8 +4,8 @@ const ADDRESS_PATTERN = /^(4|8)[1-9A-HJ-NP-Za-km-z]{94,105}$/;
 module.exports = async function handler(request, response) {
   if (request.method !== 'GET') return response.status(405).json({ error: 'Method not allowed' });
   const address = request.query.address;
-  const endpoint = Array.isArray(request.query.endpoint) ? request.query.endpoint : [request.query.endpoint];
-  if (!ADDRESS_PATTERN.test(address || '') || endpoint.some((part) => !part || part.includes('..'))) {
+  const endpoint = String(request.query.path || '').split('/').filter(Boolean);
+  if (!ADDRESS_PATTERN.test(address || '') || endpoint.length === 0 || endpoint.some((part) => part === '..')) {
     return response.status(400).json({ error: 'Invalid API request' });
   }
   try {
