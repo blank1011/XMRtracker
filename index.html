@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0f0d" />
+  <title>XMR MONERO MINER</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">X</div>
+        <div>
+          <p class="eyebrow">LOCAL MINING OPERATIONS</p>
+          <h1>XMR MONERO MINER</h1>
+        </div>
+      </div>
+      <div class="nav-overview">
+        <p class="eyebrow">CONTROL ROOM / OVERVIEW</p>
+        <h2>OPERATIONS OVERVIEW</h2>
+      </div>
+      <div class="nav-status">
+        <div class="last-saved">UPDATED <strong id="last-updated">--:--:--</strong></div>
+        <div class="live-indicator"><span class="pulse-dot"></span><span>LIVE TRACKING</span></div>
+      </div>
+    </header>
+
+    <main>
+      <section class="earnings-section" aria-labelledby="earnings-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">MONEROOCEAN / WALLET API</p>
+            <h2 id="earnings-title">Earnings overview</h2>
+          </div>
+          <span id="api-status" class="api-status">NOT CONNECTED</span>
+        </div>
+        <details class="wallet-settings" open>
+          <summary>WALLET SETTINGS <span>PUBLIC ADDRESS + API CONNECTION</span></summary>
+          <div class="wallet-bar">
+            <label for="wallet-address">PUBLIC XMR WALLET ADDRESS</label>
+            <div class="wallet-controls">
+              <input id="wallet-address" type="text" placeholder="Paste your MoneroOcean wallet address" autocomplete="off" spellcheck="false" />
+              <button id="refresh-earnings" class="refresh-button" type="button">REFRESH</button>
+            </div>
+            <p class="wallet-note">Only your public wallet address is used. Never enter a seed phrase or private key.</p>
+          </div>
+        </details>
+        <div class="earnings-grid" aria-live="polite">
+          <article class="earning-card"><span class="metric-label">TOTAL PAID</span><strong id="total-paid">-- XMR</strong><span class="earning-caption">Lifetime payouts</span></article>
+          <article class="earning-card"><span class="metric-label">BALANCE DUE</span><strong id="balance-due">-- XMR</strong><span class="earning-caption">Waiting for payout</span></article>
+          <article class="earning-card"><span class="metric-label">POOL HASHRATE</span><strong id="wallet-hashrate">--</strong><span class="earning-caption">Current wallet estimate</span></article>
+          <article class="earning-card"><span class="metric-label">VALID SHARES</span><strong id="valid-shares">--</strong><span class="earning-caption">Accepted by pool</span></article>
+        </div>
+        <p id="api-message" class="api-message">Enter your wallet address to load earnings.</p>
+      </section>
+
+      <div class="operations-layout">
+        <section class="fleet-summary-section" aria-labelledby="fleet-summary-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">CONTROL SNAPSHOT</p>
+              <h2 id="fleet-summary-title">Miner fleet status</h2>
+            </div>
+          </div>
+          <section class="metric-grid" aria-label="Fleet summary">
+            <article class="metric-card metric-online">
+              <div class="metric-label"><span class="status-dot online"></span>ONLINE NOW</div>
+              <strong id="online-count">0</strong><span class="metric-suffix"> / 15 rigs</span>
+              <div class="metric-track"><span id="online-track"></span></div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-label">FLEET HASHRATE</div>
+              <strong id="fleet-hashrate">--</strong>
+              <p class="metric-note">From active workers</p>
+            </article>
+            <article class="metric-card">
+              <div class="metric-label">OFFLINE NOW</div>
+              <strong id="offline-count">15</strong><span class="metric-suffix"> rigs</span>
+              <p class="metric-note">Based on recent shares</p>
+            </article>
+          </section>
+        </section>
+
+        <section class="fleet-section" aria-labelledby="fleet-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">FLEET GRID</p>
+              <h2 id="fleet-title">Your miners <span id="fleet-count">15</span></h2>
+            </div>
+            <div class="legend" aria-label="Status legend"><span><i class="status-dot online"></i>Online</span><span><i class="status-dot offline"></i>Offline</span></div>
+          </div>
+          <div id="miner-grid" class="miner-grid"></div>
+        </section>
+      </div>
+
+      <section class="logs-section" aria-labelledby="logs-title">
+        <div class="section-heading logs-heading">
+          <div>
+            <p class="eyebrow">EVENT STREAM</p>
+            <h2 id="logs-title">Activity logs</h2>
+          </div>
+          <div class="report-controls">
+            <select id="report-period" aria-label="Report period"><option value="daily">DAILY REPORT</option><option value="monthly">MONTHLY REPORT</option></select>
+            <button id="export-excel" class="refresh-button" type="button">EXPORT EXCEL</button>
+            <button id="export-report" class="refresh-button" type="button">EXPORT PHP REPORT</button>
+            <button id="clear-logs" class="text-button" type="button">Clear logs</button>
+          </div>
+        </div>
+        <div id="activity-log" class="activity-log" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer class="footer"><span>XMR MONERO MINER</span><span>API TELEMETRY // LOCAL OPERATIONS</span></footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
