@@ -84,6 +84,9 @@ h2 { font-size: clamp(23px, 3vw, 34px); letter-spacing: -.04em; line-height: 1; 
 .legend span { gap: 7px; }
 .status-dot.offline { background: var(--red); }
 .miner-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.miner-browser { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+.miner-window { color: var(--muted); font: 10px "DM Mono", monospace; white-space: nowrap; }
+.miner-browser input { flex: 1; accent-color: var(--green); }
 .miner-card { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid #5c302e; min-height: 154px; padding: 17px; display: flex; flex-direction: column; justify-content: space-between; transition: border-color .2s, background .2s, transform .2s; }
 .miner-card:hover { border-color: #496052; transform: translateY(-2px); }
 .miner-card:not(.is-online) { border-color: #603331; background: linear-gradient(150deg, #201615, var(--panel)); }

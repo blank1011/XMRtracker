@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'xmr-miner-dashboard-v1';
+const MINER_PAGE_SIZE = 15;
 const MONEROOCEAN_API = 'https://api.moneroocean.stream/miner';
 const API_BASE = window.location.protocol === 'file:' ? MONEROOCEAN_API : '/api/miner';
 const PRICE_API = window.location.protocol === 'file:' ? 'https://api.coingecko.com/api/v3/simple/price?ids=monero&vs_currencies=php' : '/api/price/php';
@@ -41,6 +42,9 @@ const defaultState = {
 let state = loadState();
 
 const minerGrid = document.querySelector('#miner-grid');
+const minerBrowser = document.querySelector('.miner-browser');
+const minerSlider = document.querySelector('#miner-slider');
+const minerWindow = document.querySelector('#miner-window');
 const activityLog = document.querySelector('#activity-log');
 const onlineCount = document.querySelector('#online-count');
 const offlineCount = document.querySelector('#offline-count');
@@ -54,6 +58,7 @@ let earningsRequest = null;
 let workerData = new Map();
 let lastSuccessfulSync = null;
 let phpPerXmr = null;
+let minerWindowStart = 0;
 
 function loadState() {
   try {
@@ -287,7 +292,10 @@ function registerDiscoveredMiners(identifiers) {
 }
 
 function renderMiners() {
-  minerGrid.innerHTML = state.miners.map((miner) => `
+  const maxWindowStart = Math.max(0, state.miners.length - MINER_PAGE_SIZE);
+  minerWindowStart = Math.min(minerWindowStart, maxWindowStart);
+  const visibleMiners = state.miners.slice(minerWindowStart, minerWindowStart + MINER_PAGE_SIZE);
+  minerGrid.innerHTML = visibleMiners.map((miner) => `
     <article class="miner-card ${isWorkerOnline(workerData.get(miner.workerId)) ? 'is-online' : ''}" data-id="${miner.id}">
       <div class="miner-card-top">
         <span class="miner-number">RIG ${String(miner.id).padStart(2, '0')}</span>
@@ -304,6 +312,10 @@ function renderMiners() {
       ${sparkline(workerData.get(miner.workerId)?.history || [])}
     </article>
   `).join('');
+  minerSlider.max = maxWindowStart;
+  minerSlider.value = minerWindowStart;
+  minerBrowser.hidden = state.miners.length <= MINER_PAGE_SIZE;
+  minerWindow.textContent = `${minerWindowStart + 1}-${Math.min(minerWindowStart + MINER_PAGE_SIZE, state.miners.length)} OF ${state.miners.length}`;
 }
 
 function renderSummary() {
@@ -488,6 +500,11 @@ minerGrid.addEventListener('click', (event) => {
   const miner = state.miners.find((item) => item.id === Number(card.dataset.id));
   if (action === 'rename') renameMiner(card, miner);
   if (action === 'copy') copyAddress(card, miner);
+});
+
+minerSlider.addEventListener('input', () => {
+  minerWindowStart = Number(minerSlider.value);
+  renderMiners();
 });
 
 document.querySelector('#clear-logs').addEventListener('click', () => {
