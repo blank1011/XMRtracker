@@ -1,5 +1,4 @@
 const STORAGE_KEY = 'xmr-miner-dashboard-v1';
-const MINER_COUNT = 15;
 const MONEROOCEAN_API = 'https://api.moneroocean.stream/miner';
 const API_BASE = window.location.protocol === 'file:' ? MONEROOCEAN_API : '/api/miner';
 const PRICE_API = window.location.protocol === 'file:' ? 'https://api.coingecko.com/api/v3/simple/price?ids=monero&vs_currencies=php' : '/api/price/php';
@@ -59,15 +58,19 @@ let phpPerXmr = null;
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved?.miners?.length === MINER_COUNT) {
+    if (Array.isArray(saved?.miners)) {
       saved.miners = saved.miners.map((miner, index) => ({
         ...miner,
-        workerId: rigDirectory[index][0],
-        anydesk: rigDirectory[index][1],
-        name: /^Miner \d+$/.test(miner.name) ? rigDirectory[index][0] : miner.name
+        id: Number.isInteger(miner.id) ? miner.id : index + 1,
+        workerId: miner.workerId || rigDirectory[index]?.[0] || `worker-${index + 1}`,
+        anydesk: miner.anydesk || rigDirectory[index]?.[1] || '',
+        name: miner.name && !/^Miner \d+$/.test(miner.name)
+          ? miner.name
+          : rigDirectory[index]?.[0] || miner.workerId || `Worker ${index + 1}`
       }));
       saved.walletAddress = saved.walletAddress || DEFAULT_WALLET_ADDRESS;
       saved.snapshots = Array.isArray(saved.snapshots) ? saved.snapshots : [];
+      saved.logs = Array.isArray(saved.logs) ? saved.logs : [];
       return saved;
     }
   } catch (error) {
@@ -231,6 +234,7 @@ async function refreshWorkers(address) {
   const identifiersResponse = await fetch(minerApiUrl(address, 'identifiers'));
   if (!identifiersResponse.ok) throw new Error(`Worker API returned ${identifiersResponse.status}`);
   const identifiers = await identifiersResponse.json();
+  registerDiscoveredMiners(Array.isArray(identifiers) ? identifiers : []);
   const workerResults = await Promise.all(state.miners.map(async (miner) => {
     if (!identifiers.includes(miner.workerId)) return [miner.workerId, { history: [] }];
     const response = await fetch(minerApiUrl(address, `chart/hashrate/${encodeURIComponent(miner.workerId)}`));
@@ -259,6 +263,29 @@ async function refreshWorkers(address) {
   render();
 }
 
+function registerDiscoveredMiners(identifiers) {
+  const knownWorkers = new Set(state.miners.map((miner) => miner.workerId));
+  const newWorkers = identifiers
+    .filter((workerId) => typeof workerId === 'string' && workerId.trim())
+    .map((workerId) => workerId.trim())
+    .filter((workerId) => !knownWorkers.has(workerId));
+  if (!newWorkers.length) return;
+
+  const nextId = state.miners.reduce((highestId, miner) => Math.max(highestId, Number(miner.id) || 0), 0);
+  newWorkers.forEach((workerId, index) => {
+    state.miners.push({
+      id: nextId + index + 1,
+      name: workerId,
+      workerId,
+      anydesk: '',
+      online: false,
+      totalSeconds: 0,
+      onlineSince: null
+    });
+  });
+  saveState();
+}
+
 function renderMiners() {
   minerGrid.innerHTML = state.miners.map((miner) => `
     <article class="miner-card ${isWorkerOnline(workerData.get(miner.workerId)) ? 'is-online' : ''}" data-id="${miner.id}">
@@ -282,10 +309,13 @@ function renderMiners() {
 function renderSummary() {
   const online = state.miners.filter((miner) => isWorkerOnline(workerData.get(miner.workerId))).length;
   const totalHashrate = state.miners.reduce((sum, miner) => sum + (workerData.get(miner.workerId)?.hashrate || 0), 0);
+  const totalMiners = state.miners.length;
   onlineCount.textContent = online;
-  offlineCount.textContent = MINER_COUNT - online;
+  offlineCount.textContent = totalMiners - online;
   fleetHashrate.textContent = formatHashrate(totalHashrate);
-  onlineTrack.style.width = `${(online / MINER_COUNT) * 100}%`;
+  onlineTrack.style.width = `${totalMiners ? (online / totalMiners) * 100 : 0}%`;
+  document.querySelector('#online-total').textContent = totalMiners;
+  document.querySelector('#fleet-count').textContent = totalMiners;
 }
 
 function renderLogs() {
@@ -394,7 +424,7 @@ function exportReport() {
     ['FLEET SUMMARY'],
     ['Metric', 'Value', 'Unit'],
     ['Online rigs', online, 'rigs'],
-    ['Offline rigs', MINER_COUNT - online, 'rigs'],
+    ['Offline rigs', state.miners.length - online, 'rigs'],
     ['Fleet hashrate', Number((totalHashrate / 1000).toFixed(2)), 'kH/s'],
     [],
     ['RIG STATUS'],
