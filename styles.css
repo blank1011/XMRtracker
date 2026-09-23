@@ -57,11 +57,14 @@ h2 { font-size: clamp(23px, 3vw, 34px); letter-spacing: -.04em; line-height: 1; 
 .refresh-button { border: 1px solid var(--green); background: var(--green-deep); color: var(--green); padding: 0 17px; font: 10px "DM Mono", monospace; }
 .refresh-button:hover { background: #1b4968; }
 .wallet-note, .api-message { color: var(--muted); font-size: 11px; margin: 10px 0 0; }
-.earnings-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+.earnings-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
 .earning-card { border: 1px solid var(--line); background: var(--panel); padding: 17px 18px; min-height: 111px; }
 .earning-card .metric-label { margin-bottom: 13px; }
 .earning-card strong { display: block; font-size: 20px; font-weight: 500; letter-spacing: -.04em; }
 .earning-caption { display: block; color: var(--muted); font-size: 11px; margin-top: 7px; }
+.converter-input { display: block; width: 100%; border: 1px solid var(--line); background: #0d120f; color: var(--text); padding: 5px 7px; outline: 0; font: 14px "DM Mono", monospace; margin: -3px 0 8px; }
+.converter-input:focus { border-color: var(--green); }
+.converter-card strong { font-size: 18px; }
 .api-status { color: var(--muted); font: 10px "DM Mono", monospace; }
 .api-status.connected { color: var(--green); }
 .api-status.loading { color: var(--amber); }

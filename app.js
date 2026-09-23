@@ -6,13 +6,18 @@ const PRICE_API = window.location.protocol === 'file:' ? 'https://api.coingecko.
 const ATOMIC_UNITS_PER_XMR = 1e12;
 const DEFAULT_WALLET_ADDRESS = '45Y799bJYW4KSZfB5nxPFEdFYhiekGtgJDdeUq5NM5JULam78abKGbhB6chJ1hGFMXfRqyuVxA8pfaG1oeT6oAw3TgojuZH';
 const STALE_AFTER_MS = 10 * 60 * 1000;
+const ANYDESK_ADDRESSES = [...new Set([
+  '1052734659', '1285492913', '1733123959', '1115457674', '1616217465',
+  '1960500811', '1648705709', '1935666559', '1088069133', '1692863900',
+  '1551255560', '1825189192', '1178337593', '1305526658', '1331686494',
+  '1991530192', '299006298', '1452865932', '1053112484', '1698177678'
+])];
 const rigDirectory = [
   ['PC15', '1551255560'],
   ['PC14', '1825189192'],
   ['PC13', '1178337593'],
   ['PC12', '1305526658'],
   ['PC11', '1331686494'],
-  ['PC10', '299006298'],
   ['PC9', '1452865932'],
   ['PC8', '1053112484'],
   ['PC27', '1648705709'],
@@ -21,7 +26,12 @@ const rigDirectory = [
   ['PC24', '1692863900'],
   ['PC16', '1960500811'],
   ['PC17', '1616217465'],
-  ['PC18', '1115457674']
+  ['PC18', '1115457674'],
+  ['PC102', '1052734659'],
+  ['PC19', '1285492913'],
+  ['PC20', '1733123959'],
+  ['PC21', '1991530192'],
+  ['PC22', '1698177678']
 ];
 
 const defaultState = {
@@ -64,11 +74,11 @@ function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (Array.isArray(saved?.miners)) {
-      saved.miners = saved.miners.map((miner, index) => ({
+      saved.miners = saved.miners.filter((miner) => miner.workerId !== 'PC10').map((miner, index) => ({
         ...miner,
         id: Number.isInteger(miner.id) ? miner.id : index + 1,
         workerId: miner.workerId || rigDirectory[index]?.[0] || `worker-${index + 1}`,
-        anydesk: miner.anydesk || rigDirectory[index]?.[1] || '',
+        anydesk: miner.anydesk || rigDirectory.find(([name]) => name === (miner.workerId || rigDirectory[index]?.[0]))?.[1] || '',
         name: miner.name && !/^Miner \d+$/.test(miner.name)
           ? miner.name
           : rigDirectory[index]?.[0] || miner.workerId || `Worker ${index + 1}`
@@ -113,6 +123,22 @@ function formatHashrate(hashrate) {
 function formatCompactHashrate(hashrate) {
   const value = Number(hashrate || 0);
   return value >= 1000 ? `${(value / 1000).toFixed(2)} kH/s` : `${Math.round(value)} H/s`;
+}
+
+function updateConverter() {
+  const amount = Number(document.querySelector('#converter-xmr')?.value || 0);
+  const rateElement = document.querySelector('#converter-rate');
+  const resultElement = document.querySelector('#converter-php');
+  if (!rateElement || !resultElement) return;
+  rateElement.textContent = phpPerXmr === null ? 'RATE UNAVAILABLE' : `1 XMR = PHP ${phpPerXmr.toFixed(2)}`;
+  resultElement.textContent = phpPerXmr === null ? '-- PHP' : `PHP ${(amount * phpPerXmr).toFixed(2)}`;
+}
+
+function syncConverterToTotalPaid(totalPaidAtomicUnits) {
+  const input = document.querySelector('#converter-xmr');
+  if (!input) return;
+  input.value = (Number(totalPaidAtomicUnits || 0) / ATOMIC_UNITS_PER_XMR).toFixed(6);
+  updateConverter();
 }
 
 function isWorkerOnline(worker) {
@@ -210,6 +236,7 @@ async function refreshEarnings() {
     if (!response.ok) throw new Error(`API returned ${response.status}`);
     const stats = await response.json();
     document.querySelector('#total-paid').textContent = formatXmr(stats.amtPaid);
+    syncConverterToTotalPaid(stats.amtPaid);
     document.querySelector('#balance-due').textContent = formatXmr(stats.amtDue);
     document.querySelector('#wallet-hashrate').textContent = formatHashrate(stats.hash);
     document.querySelector('#valid-shares').textContent = Number(stats.validShares || 0).toLocaleString();
@@ -217,6 +244,7 @@ async function refreshEarnings() {
     state.snapshots = state.snapshots.slice(-288);
     saveState();
     await refreshPhpRate();
+    updateConverter();
     await refreshWorkers(address);
     lastSuccessfulSync = Date.now();
     lastUpdated.textContent = formatClock(new Date(lastSuccessfulSync));
@@ -240,6 +268,7 @@ async function refreshWorkers(address) {
   if (!identifiersResponse.ok) throw new Error(`Worker API returned ${identifiersResponse.status}`);
   const identifiers = await identifiersResponse.json();
   registerDiscoveredMiners(Array.isArray(identifiers) ? identifiers : []);
+  assignAnyDeskAddresses();
   const workerResults = await Promise.all(state.miners.map(async (miner) => {
     if (!identifiers.includes(miner.workerId)) return [miner.workerId, { history: [] }];
     const response = await fetch(minerApiUrl(address, `chart/hashrate/${encodeURIComponent(miner.workerId)}`));
@@ -282,13 +311,25 @@ function registerDiscoveredMiners(identifiers) {
       id: nextId + index + 1,
       name: workerId,
       workerId,
-      anydesk: '',
+      anydesk: rigDirectory.find(([name]) => name === workerId)?.[1] || '',
       online: false,
       totalSeconds: 0,
       onlineSince: null
     });
   });
   saveState();
+}
+
+function assignAnyDeskAddresses() {
+  const usedAddresses = new Set(state.miners.map((miner) => miner.anydesk).filter(Boolean));
+  const availableAddresses = ANYDESK_ADDRESSES.filter((address) => !usedAddresses.has(address));
+  let changed = false;
+  state.miners.forEach((miner) => {
+    if (miner.anydesk || !availableAddresses.length) return;
+    miner.anydesk = availableAddresses.shift();
+    changed = true;
+  });
+  if (changed) saveState();
 }
 
 function renderMiners() {
@@ -506,6 +547,9 @@ minerSlider.addEventListener('input', () => {
   minerWindowStart = Number(minerSlider.value);
   renderMiners();
 });
+
+document.querySelector('#converter-xmr').addEventListener('input', updateConverter);
+updateConverter();
 
 document.querySelector('#clear-logs').addEventListener('click', () => {
   state.logs = [];
