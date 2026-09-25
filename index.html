@@ -59,6 +59,22 @@
           <article class="earning-card converter-card"><span class="metric-label">TOTAL PAID TO PHP</span><input id="converter-xmr" class="converter-input" type="number" min="0" step="0.000001" value="0" aria-label="Total paid XMR amount to convert" /><strong id="converter-php">-- PHP</strong><span id="converter-rate" class="earning-caption">USING TOTAL PAID</span></article>
         </div>
         <p id="api-message" class="api-message">Enter your wallet address to load earnings.</p>
+        <details class="earnings-history">
+          <summary><span><span class="eyebrow">HISTORY / SNAPSHOTS</span><strong>Earnings history</strong></span><span class="history-action">SHOW CHART</span></summary>
+          <div class="earnings-chart-panel">
+            <div class="chart-heading">
+              <div>
+                <p class="eyebrow">HISTORY / SNAPSHOTS</p>
+                <h3>Earnings history</h3>
+              </div>
+              <div class="chart-controls">
+                <select id="chart-metric" aria-label="Chart metric"><option value="earned">EARNED PER REFRESH</option><option value="total">TOTAL EARNED</option><option value="due">BALANCE DUE</option></select>
+                <select id="chart-currency" aria-label="Chart currency"><option value="xmr">XMR</option><option value="php">PHP</option></select>
+              </div>
+            </div>
+            <div id="earnings-chart" class="earnings-chart" aria-live="polite"></div>
+          </div>
+        </details>
       </section>
 
       <div class="operations-layout">

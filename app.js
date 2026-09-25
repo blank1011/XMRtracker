@@ -51,6 +51,8 @@ let workerData = new Map();
 let lastSuccessfulSync = null;
 let phpPerXmr = null;
 let minerWindowStart = 0;
+let chartMetric = 'earned';
+let chartCurrency = 'xmr';
 
 function loadState() {
   try {
@@ -120,6 +122,48 @@ function syncConverterToTotalPaid(totalPaidAtomicUnits) {
   if (!input) return;
   input.value = (Number(totalPaidAtomicUnits || 0) / ATOMIC_UNITS_PER_XMR).toFixed(6);
   updateConverter();
+}
+
+function renderEarningsChart() {
+  const chart = document.querySelector('#earnings-chart');
+  if (!chart) return;
+  const snapshots = state.snapshots.slice().sort((left, right) => left.timestamp - right.timestamp);
+  if (snapshots.length < 2) {
+    chart.innerHTML = '<div class="chart-empty">Collecting snapshots. The chart will appear after the next refresh.</div>';
+    return;
+  }
+  const values = snapshots.map((snapshot, index) => {
+    let atomicUnits;
+    if (chartMetric === 'due') atomicUnits = snapshot.amtDue;
+    else if (chartMetric === 'earned') {
+      const previous = snapshots[index - 1];
+      atomicUnits = previous ? Math.max(0, (Number(snapshot.amtPaid || 0) + Number(snapshot.amtDue || 0)) - (Number(previous.amtPaid || 0) + Number(previous.amtDue || 0))) : 0;
+    } else atomicUnits = Number(snapshot.amtPaid || 0) + Number(snapshot.amtDue || 0);
+    const xmr = atomicUnits / ATOMIC_UNITS_PER_XMR;
+    return chartCurrency === 'php' && phpPerXmr ? xmr * phpPerXmr : xmr;
+  });
+  const width = 900;
+  const height = 220;
+  const padding = { top: 16, right: 18, bottom: 30, left: 62 };
+  const max = Math.max(...values, 0.000001);
+  const min = Math.min(...values);
+  const rawRange = max - min;
+  const range = rawRange || Math.max(max * .2, chartCurrency === 'php' ? .01 : .0000001);
+  const chartMin = rawRange ? min - range * .1 : Math.max(0, min - range / 2);
+  const x = (index) => padding.left + (index / (values.length - 1)) * (width - padding.left - padding.right);
+  const y = (value) => padding.top + (1 - (value - chartMin) / range) * (height - padding.top - padding.bottom);
+  const points = values.map((value, index) => `${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(' ');
+  const label = (value) => chartCurrency === 'php' ? `PHP ${value.toFixed(0)}` : `${value.toFixed(6)} XMR`;
+  const axisLabel = (value) => chartCurrency === 'php' ? `₱${value.toFixed(0)}` : value.toFixed(6);
+  const gridLines = [0, .5, 1].map((position) => {
+    const value = chartMin + range * position;
+    const lineY = y(value);
+    return `<line x1="${padding.left}" y1="${lineY}" x2="${width - padding.right}" y2="${lineY}" class="chart-grid-line" /><text x="${padding.left - 12}" y="${lineY + 4}" text-anchor="end" class="chart-axis-label">${escapeHtml(axisLabel(value))}</text>`;
+  }).join('');
+  const firstDate = new Date(snapshots[0].timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const lastDate = new Date(snapshots.at(-1).timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const chartTitle = chartMetric === 'due' ? 'Balance due' : chartMetric === 'earned' ? 'Earned per refresh' : 'Total earned';
+  chart.innerHTML = `<svg class="earnings-chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${chartTitle} history"><defs><linearGradient id="chart-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#62c8f2" stop-opacity=".22"/><stop offset="100%" stop-color="#62c8f2" stop-opacity="0"/></linearGradient></defs>${gridLines}<polygon points="${padding.left},${height - padding.bottom} ${points} ${width - padding.right},${height - padding.bottom}" class="chart-area"/><polyline points="${points}" class="earnings-line"/><circle cx="${x(values.length - 1)}" cy="${y(values.at(-1))}" r="4" class="chart-current"/><text x="${padding.left}" y="${height - 8}" class="chart-axis-label">${firstDate}</text><text x="${width - padding.right}" y="${height - 8}" text-anchor="end" class="chart-axis-label">${lastDate}</text></svg><div class="chart-current-value">${chartTitle.toUpperCase()} <strong>${escapeHtml(label(values.at(-1)))}</strong></div>`;
 }
 
 function isWorkerOnline(worker) {
@@ -226,6 +270,7 @@ async function refreshEarnings() {
     saveState();
     await refreshPhpRate();
     updateConverter();
+    renderEarningsChart();
     await refreshWorkers(address);
     lastSuccessfulSync = Date.now();
     lastUpdated.textContent = formatClock(new Date(lastSuccessfulSync));
@@ -531,7 +576,16 @@ minerSlider.addEventListener('input', () => {
 });
 
 document.querySelector('#converter-xmr').addEventListener('input', updateConverter);
+document.querySelector('#chart-metric').addEventListener('change', (event) => {
+  chartMetric = event.target.value;
+  renderEarningsChart();
+});
+document.querySelector('#chart-currency').addEventListener('change', (event) => {
+  chartCurrency = event.target.value;
+  renderEarningsChart();
+});
 updateConverter();
+renderEarningsChart();
 
 document.querySelector('#clear-logs').addEventListener('click', () => {
   state.logs = [];
