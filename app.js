@@ -7,32 +7,14 @@ const ATOMIC_UNITS_PER_XMR = 1e12;
 const DEFAULT_WALLET_ADDRESS = '45Y799bJYW4KSZfB5nxPFEdFYhiekGtgJDdeUq5NM5JULam78abKGbhB6chJ1hGFMXfRqyuVxA8pfaG1oeT6oAw3TgojuZH';
 const STALE_AFTER_MS = 10 * 60 * 1000;
 const ANYDESK_ADDRESSES = [...new Set([
-  '1052734659', '1285492913', '1733123959', '1115457674', '1616217465',
-  '1960500811', '1648705709', '1935666559', '1088069133', '1692863900',
-  '1551255560', '1825189192', '1178337593', '1305526658', '1331686494',
-  '1991530192', '299006298', '1452865932', '1053112484', '1698177678'
+  '1960500811', '1616217465', '1115457674', '1733123959', '1285492913',
+  '1052734659', '1908514350', '1692863900', '1088069133', '1935666559',
+  '1648705709', '1551255560', '1825189192', '1178337593', '1305526658',
+  '1331686494', '1991530192', '299006298', '1452865932', '1053112484',
+  '1698177678', '1789141169', '1503690377', '1944045143', '1920361743',
+  '156206757'
 ])];
-const rigDirectory = [
-  ['PC15', '1551255560'],
-  ['PC14', '1825189192'],
-  ['PC13', '1178337593'],
-  ['PC12', '1305526658'],
-  ['PC11', '1331686494'],
-  ['PC9', '1452865932'],
-  ['PC8', '1053112484'],
-  ['PC27', '1648705709'],
-  ['PC26', '1935666559'],
-  ['PC25', '1088069133'],
-  ['PC24', '1692863900'],
-  ['PC16', '1960500811'],
-  ['PC17', '1616217465'],
-  ['PC18', '1115457674'],
-  ['PC102', '1052734659'],
-  ['PC19', '1285492913'],
-  ['PC20', '1733123959'],
-  ['PC21', '1991530192'],
-  ['PC22', '1698177678']
-];
+const rigDirectory = ANYDESK_ADDRESSES.map((anydesk, index) => [`aoi${index + 1}`, anydesk]);
 
 const defaultState = {
   walletAddress: DEFAULT_WALLET_ADDRESS,
@@ -74,15 +56,14 @@ function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (Array.isArray(saved?.miners)) {
-      saved.miners = saved.miners.filter((miner) => miner.workerId !== 'PC10').map((miner, index) => ({
+      saved.miners = saved.miners.filter((miner) => /^aoi\d+$/.test(miner.workerId)).map((miner, index) => ({
         ...miner,
         id: Number.isInteger(miner.id) ? miner.id : index + 1,
         workerId: miner.workerId || rigDirectory[index]?.[0] || `worker-${index + 1}`,
-        anydesk: miner.anydesk || rigDirectory.find(([name]) => name === (miner.workerId || rigDirectory[index]?.[0]))?.[1] || '',
-        name: miner.name && !/^Miner \d+$/.test(miner.name)
-          ? miner.name
-          : rigDirectory[index]?.[0] || miner.workerId || `Worker ${index + 1}`
+        anydesk: rigDirectory.find(([name]) => name === miner.workerId)?.[1] || '',
+        name: miner.workerId
       }));
+      if (!saved.miners.length) return structuredClone(defaultState);
       saved.walletAddress = saved.walletAddress || DEFAULT_WALLET_ADDRESS;
       saved.snapshots = Array.isArray(saved.snapshots) ? saved.snapshots : [];
       saved.logs = Array.isArray(saved.logs) ? saved.logs : [];
@@ -302,6 +283,7 @@ function registerDiscoveredMiners(identifiers) {
   const newWorkers = identifiers
     .filter((workerId) => typeof workerId === 'string' && workerId.trim())
     .map((workerId) => workerId.trim())
+    .filter((workerId) => /^aoi\d+$/.test(workerId))
     .filter((workerId) => !knownWorkers.has(workerId));
   if (!newWorkers.length) return;
 
