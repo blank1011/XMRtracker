@@ -69,6 +69,7 @@ function loadState() {
       saved.walletAddress = saved.walletAddress || DEFAULT_WALLET_ADDRESS;
       saved.snapshots = Array.isArray(saved.snapshots) ? saved.snapshots : [];
       saved.logs = Array.isArray(saved.logs) ? saved.logs : [];
+      saved.miners = sortMiners(saved.miners);
       return saved;
     }
   } catch (error) {
@@ -79,6 +80,20 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function minerNumberValue(name) {
+  const match = String(name || '').match(/^aoi(\d+)$/i);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function sortMiners(miners) {
+  return [...miners].sort((left, right) => {
+    const leftNum = minerNumberValue(left.workerId || left.name);
+    const rightNum = minerNumberValue(right.workerId || right.name);
+    if (leftNum !== rightNum) return leftNum - rightNum;
+    return String(left.name || '').localeCompare(String(right.name || ''));
+  });
 }
 
 function formatDuration(seconds) {
@@ -294,6 +309,7 @@ async function refreshWorkers(address) {
   if (!identifiersResponse.ok) throw new Error(`Worker API returned ${identifiersResponse.status}`);
   const identifiers = await identifiersResponse.json();
   registerDiscoveredMiners(Array.isArray(identifiers) ? identifiers : []);
+  state.miners = sortMiners(state.miners);
   assignAnyDeskAddresses();
   const workerResults = await Promise.all(state.miners.map(async (miner) => {
     if (!identifiers.includes(miner.workerId)) return [miner.workerId, { history: [] }];
@@ -344,6 +360,8 @@ function registerDiscoveredMiners(identifiers) {
       onlineSince: null
     });
   });
+  state.miners = sortMiners(state.miners);
+  state.miners = state.miners.map((miner, index) => ({ ...miner, id: index + 1 }));
   saveState();
 }
 
@@ -360,6 +378,7 @@ function assignAnyDeskAddresses() {
 }
 
 function renderMiners() {
+  state.miners = sortMiners(state.miners);
   const maxWindowStart = Math.max(0, state.miners.length - MINER_PAGE_SIZE);
   minerWindowStart = Math.min(minerWindowStart, maxWindowStart);
   const visibleMiners = state.miners.slice(minerWindowStart, minerWindowStart + MINER_PAGE_SIZE);
@@ -607,7 +626,7 @@ walletAddressInput.addEventListener('keydown', (event) => {
 if (state.walletAddress) refreshEarnings();
 setInterval(() => {
   if (state.walletAddress && isMoneroAddress(state.walletAddress)) refreshEarnings();
-}, 300000);
+}, 120000);
 setInterval(updateSyncIndicator, 1000);
 
 function escapeHtml(value) {
