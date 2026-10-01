@@ -19,12 +19,16 @@ function bearerToken(request) {
 }
 
 function getAgentTokens() {
-  try {
-    const tokens = JSON.parse(process.env.CONTROL_AGENT_TOKENS || '{}');
-    return tokens && typeof tokens === 'object' && !Array.isArray(tokens) ? tokens : {};
-  } catch {
-    return {};
-  }
+  const tokenMaps = [process.env.CONTROL_AGENT_TOKENS, process.env.CONTROL_AGENT_TOKENS_ADDITIONAL]
+    .map((value) => {
+      try {
+        const tokens = JSON.parse(value || '{}');
+        return tokens && typeof tokens === 'object' && !Array.isArray(tokens) ? tokens : {};
+      } catch {
+        return {};
+      }
+    });
+  return Object.assign({}, ...tokenMaps);
 }
 
 function getSupabaseConfig() {

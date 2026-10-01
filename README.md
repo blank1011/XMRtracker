@@ -45,6 +45,7 @@ Remote controls use the Vercel function at `/api/miner-control` and a Supabase t
 	- `SUPABASE_SERVICE_ROLE_KEY`: the Supabase service-role key. Keep it only in Vercel environment settings.
 	- `CONTROL_ADMIN_KEY`: a long random secret used by dashboard operators.
 	- `CONTROL_AGENT_TOKENS`: a JSON object mapping each worker ID to a different long random secret, for example `{"aoi1":"...","aoi2":"..."}`.
+	- `CONTROL_AGENT_TOKENS_ADDITIONAL`: optional JSON map for adding or rotating worker tokens without replacing the original map; duplicate worker IDs in this map override the original map.
 	Generate a new secret for each value in PowerShell with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. Keep the admin key and agent tokens private; do not commit them or send them in chat.
 3. Redeploy the Vercel project. The dashboard prompts for `CONTROL_ADMIN_KEY` when a control is first used in a browser tab.
 4. On each Windows rig, copy [`install-miner-control-agent.cmd`](install-miner-control-agent.cmd) and double-click it. Enter the deployed HTTPS URL, that rig's worker ID, executable path, miner arguments/config path, and its matching agent token when prompted. The installer stores the token encrypted for the current Windows user and starts the agent at sign-in.
