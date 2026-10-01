@@ -7,6 +7,7 @@ const PORT = Number(process.env.PORT || 3000);
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'data');
 const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
+const CONTROL_FILE = path.join(DATA_DIR, 'controls.json');
 const POOL_API = 'https://api.moneroocean.stream/miner';
 const PRICE_API = 'https://api.coingecko.com/api/v3/simple/price?ids=monero&vs_currencies=php';
 const ADDRESS_PATTERN = /^(4|8)[1-9A-HJ-NP-Za-km-z]{94,105}$/;
@@ -28,6 +29,20 @@ async function saveSnapshot(address, stats) {
   history[address] = snapshots.slice(-288);
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(HISTORY_FILE, JSON.stringify(history, null, 2));
+}
+
+async function readControls() {
+  try {
+    return JSON.parse(await fs.readFile(CONTROL_FILE, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') return {};
+    throw error;
+  }
+}
+
+async function saveControls(controls) {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(CONTROL_FILE, JSON.stringify(controls, null, 2));
 }
 
 function sendJson(response, status, payload) {
@@ -59,13 +74,42 @@ async function serveStatic(response, pathname) {
   }
 }
 
+async function updateControls(request, response) {
+  try {
+    let body = '';
+    for await (const chunk of request) body += chunk;
+    const payload = body ? JSON.parse(body) : {};
+    const action = payload.action;
+    const workerId = payload.workerId || 'all';
+    if (!['pause', 'resume'].includes(action)) {
+      return sendJson(response, 400, { error: 'Action must be pause or resume' });
+    }
+    const controls = await readControls();
+    if (workerId === 'all') {
+      Object.keys(controls).forEach((key) => { controls[key] = action === 'pause' ? 'paused' : 'running'; });
+    } else {
+      controls[workerId] = action === 'pause' ? 'paused' : 'running';
+    }
+    await saveControls(controls);
+    return sendJson(response, 200, { ok: true, action, workerId, controls });
+  } catch (error) {
+    return sendJson(response, 400, { error: 'Invalid miner control payload' });
+  }
+}
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
   if (request.method === 'OPTIONS') {
-    response.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' });
+    response.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' });
     return response.end();
   }
   try {
+    if (url.pathname === '/api/miner-control' && request.method === 'GET') {
+      return sendJson(response, 200, await readControls());
+    }
+    if (url.pathname === '/api/miner-control' && request.method === 'POST') {
+      return await updateControls(request, response);
+    }
     const apiMatch = url.pathname.match(/^\/api\/miner\/([^/]+)\/(.+)$/);
     if (apiMatch) return await proxyPool(response, decodeURIComponent(apiMatch[1]), apiMatch[2]);
     const historyMatch = url.pathname.match(/^\/api\/history\/([^/]+)$/);

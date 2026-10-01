@@ -112,6 +112,10 @@ h2 { font-size: clamp(23px, 3vw, 34px); letter-spacing: -.04em; line-height: 1; 
 .legend { gap: 17px; color: var(--muted); font: 10px "DM Mono", monospace; text-transform: uppercase; }
 .legend span { gap: 7px; }
 .status-dot.offline { background: var(--red); }
+.fleet-actions { display: flex; align-items: center; gap: 10px; }
+.control-button { border: 1px solid var(--green); background: var(--green-deep); color: var(--green); padding: 7px 11px; font: 10px "DM Mono", monospace; letter-spacing: .08em; }
+.control-button.secondary { border-color: var(--line); background: #0d120f; color: var(--muted); }
+.control-button.is-paused { border-color: var(--amber); background: #332d1c; color: var(--amber); }
 .miner-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
 .miner-browser { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
 .miner-window { color: var(--muted); font: 10px "DM Mono", monospace; white-space: nowrap; }

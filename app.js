@@ -1,5 +1,7 @@
 const STORAGE_KEY = 'xmr-miner-dashboard-v1';
 const MINER_PAGE_SIZE = 15;
+const MINER_CONTROL_API = '/api/miner-control';
+const CONTROL_KEY_STORAGE = 'xmr-miner-control-key';
 const MONEROOCEAN_API = 'https://api.moneroocean.stream/miner';
 const API_BASE = window.location.protocol === 'file:' ? MONEROOCEAN_API : '/api/miner';
 const PRICE_API = window.location.protocol === 'file:' ? 'https://api.coingecko.com/api/v3/simple/price?ids=monero&vs_currencies=php' : '/api/price/php';
@@ -25,6 +27,7 @@ const defaultState = {
     workerId: name,
     anydesk,
     online: false,
+    paused: false,
     totalSeconds: 0,
     onlineSince: null
   })),
@@ -63,7 +66,8 @@ function loadState() {
         id: Number.isInteger(miner.id) ? miner.id : index + 1,
         workerId: miner.workerId || rigDirectory[index]?.[0] || `worker-${index + 1}`,
         anydesk: rigDirectory.find(([name]) => name === miner.workerId)?.[1] || '',
-        name: miner.workerId
+        name: miner.workerId,
+        paused: Boolean(miner.paused)
       }));
       if (!saved.miners.length) return structuredClone(defaultState);
       saved.walletAddress = saved.walletAddress || DEFAULT_WALLET_ADDRESS;
@@ -356,6 +360,7 @@ function registerDiscoveredMiners(identifiers) {
       workerId,
       anydesk: rigDirectory.find(([name]) => name === workerId)?.[1] || '',
       online: false,
+      paused: false,
       totalSeconds: 0,
       onlineSince: null
     });
@@ -383,7 +388,7 @@ function renderMiners() {
   minerWindowStart = Math.min(minerWindowStart, maxWindowStart);
   const visibleMiners = state.miners.slice(minerWindowStart, minerWindowStart + MINER_PAGE_SIZE);
   minerGrid.innerHTML = visibleMiners.map((miner) => `
-    <article class="miner-card ${isWorkerOnline(workerData.get(miner.workerId)) ? 'is-online' : ''}" data-id="${miner.id}">
+    <article class="miner-card ${isWorkerOnline(workerData.get(miner.workerId)) ? 'is-online' : ''} ${miner.paused ? 'is-paused' : ''}" data-id="${miner.id}">
       <div class="miner-card-top">
         <span class="miner-number">RIG ${String(miner.id).padStart(2, '0')}</span>
         <span class="miner-state"><i class="status-dot ${isWorkerOnline(workerData.get(miner.workerId)) ? 'online' : 'offline'}"></i> ${isWorkerOnline(workerData.get(miner.workerId)) ? 'ONLINE' : 'OFFLINE'}</span>
@@ -395,6 +400,7 @@ function renderMiners() {
       <button class="anydesk-button" type="button" data-action="copy" aria-label="Copy AnyDesk address ${miner.anydesk}">
         <span class="anydesk-label">ANYDESK</span><strong>${escapeHtml(miner.anydesk)}</strong><span class="copy-state">COPY</span>
       </button>
+      <button class="control-button ${miner.paused ? 'is-paused' : ''}" type="button" data-action="${miner.paused ? 'resume-mining' : 'pause-mining'}">${miner.paused ? 'RESUME' : 'PAUSE'}</button>
       <div class="worker-stats"><span>${formatCompactHashrate(workerData.get(miner.workerId)?.hashrate)}</span><span>${formatWorkerDuration(workerData.get(miner.workerId))}</span></div>
       ${sparkline(workerData.get(miner.workerId)?.history || [])}
     </article>
@@ -406,8 +412,8 @@ function renderMiners() {
 }
 
 function renderSummary() {
-  const online = state.miners.filter((miner) => isWorkerOnline(workerData.get(miner.workerId))).length;
-  const totalHashrate = state.miners.reduce((sum, miner) => sum + (workerData.get(miner.workerId)?.hashrate || 0), 0);
+  const online = state.miners.filter((miner) => !miner.paused && isWorkerOnline(workerData.get(miner.workerId))).length;
+  const totalHashrate = state.miners.reduce((sum, miner) => sum + (miner.paused ? 0 : workerData.get(miner.workerId)?.hashrate || 0), 0);
   const totalMiners = state.miners.length;
   onlineCount.textContent = online;
   offlineCount.textContent = totalMiners - online;
@@ -415,6 +421,43 @@ function renderSummary() {
   onlineTrack.style.width = `${totalMiners ? (online / totalMiners) * 100 : 0}%`;
   document.querySelector('#online-total').textContent = totalMiners;
   document.querySelector('#fleet-count').textContent = totalMiners;
+}
+
+async function updateMiningState(action, workerId = 'all') {
+  let controlKey = sessionStorage.getItem(CONTROL_KEY_STORAGE);
+  if (!controlKey) {
+    controlKey = window.prompt('Enter the dashboard control key configured for this deployment:');
+    if (!controlKey) return;
+  }
+
+  const payload = { action, workerId };
+  try {
+    const response = await fetch(MINER_CONTROL_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${controlKey}` },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      if (response.status === 401) sessionStorage.removeItem(CONTROL_KEY_STORAGE);
+      throw new Error(response.status === 401 ? 'The dashboard control key was rejected.' : `Control API returned ${response.status}`);
+    }
+    sessionStorage.setItem(CONTROL_KEY_STORAGE, controlKey);
+  } catch (error) {
+    console.warn('Could not persist mining control state.', error);
+    window.alert(`Could not send the mining command. ${error.message}`);
+    return;
+  }
+
+  if (workerId === 'all') {
+    state.miners.forEach((miner) => {
+      miner.paused = action === 'pause';
+    });
+  } else {
+    const miner = state.miners.find((item) => item.workerId === workerId);
+    if (miner) miner.paused = action === 'pause';
+  }
+  saveState();
+  render();
 }
 
 function renderLogs() {
@@ -587,7 +630,12 @@ minerGrid.addEventListener('click', (event) => {
   const miner = state.miners.find((item) => item.id === Number(card.dataset.id));
   if (action === 'rename') renameMiner(card, miner);
   if (action === 'copy') copyAddress(card, miner);
+  if (action === 'pause-mining') updateMiningState('pause', miner.workerId);
+  if (action === 'resume-mining') updateMiningState('resume', miner.workerId);
 });
+
+document.querySelector('#pause-all-miners').addEventListener('click', () => updateMiningState('pause', 'all'));
+document.querySelector('#resume-all-miners').addEventListener('click', () => updateMiningState('resume', 'all'));
 
 minerSlider.addEventListener('input', () => {
   minerWindowStart = Number(minerSlider.value);

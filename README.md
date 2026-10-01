@@ -35,6 +35,22 @@ The project includes Vercel serverless API functions and `vercel.json` routing. 
 - `/api/price/php`
 - `/api/history/...`
 
+## Remote Miner Controls
+
+Remote controls use the Vercel function at `/api/miner-control` and a Supabase table. The Windows agents make outbound HTTPS requests; no router port forwarding is required.
+
+1. In Supabase, run [`supabase/miner-controls.sql`](supabase/miner-controls.sql) in the SQL Editor.
+2. Add these Vercel environment variables:
+	- `SUPABASE_URL`: the Supabase project URL.
+	- `SUPABASE_SERVICE_ROLE_KEY`: the Supabase service-role key. Keep it only in Vercel environment settings.
+	- `CONTROL_ADMIN_KEY`: a long random secret used by dashboard operators.
+	- `CONTROL_AGENT_TOKENS`: a JSON object mapping each worker ID to a different long random secret, for example `{"aoi1":"...","aoi2":"..."}`.
+	Generate a new secret for each value in PowerShell with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. Keep the admin key and agent tokens private; do not commit them or send them in chat.
+3. Redeploy the Vercel project. The dashboard prompts for `CONTROL_ADMIN_KEY` when a control is first used in a browser tab.
+4. On each Windows rig, copy [`install-miner-control-agent.cmd`](install-miner-control-agent.cmd) and double-click it. Enter the deployed HTTPS URL, that rig's worker ID, executable path, miner arguments/config path, and its matching agent token when prompted. The installer stores the token encrypted for the current Windows user and starts the agent at sign-in.
+
+The endpoint uses the admin secret for dashboard commands and a separate per-rig token for agent polling. `SUPABASE_SERVICE_ROLE_KEY` must never be placed in browser code or on a rig. Test with one rig before configuring the fleet. The agent only stops the configured executable path; provide the miner's existing config arguments before sending a resume command. The installer registers a Windows Scheduled Task under the current user; rerun the file to change that rig's settings.
+
 The public wallet address is stored in browser local storage. No private keys, seed phrases, or mining credentials are used.
 
 ## Important Notes
