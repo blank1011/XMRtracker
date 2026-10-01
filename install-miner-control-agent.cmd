@@ -1,6 +1,11 @@
 @echo off
 setlocal
 set "XMR_INSTALLER_SOURCE=%~f0"
+net session >nul 2>&1
+if errorlevel 1 (
+    powershell.exe -NoProfile -Command "Start-Process -FilePath $env:XMR_INSTALLER_SOURCE -Verb RunAs"
+    exit /b
+)
 set "XMR_INSTALLER_TEMP=%TEMP%\XMRControlInstaller-%RANDOM%-%RANDOM%.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$source = [IO.File]::ReadAllText($env:XMR_INSTALLER_SOURCE); $marker = '# POWERSHELL_' + 'PAYLOAD'; $index = $source.IndexOf($marker); if ($index -lt 0) { throw 'Installer payload is missing.' }; $payload = $source.Substring($index + $marker.Length).TrimStart([char]13, [char]10); [IO.File]::WriteAllText($env:XMR_INSTALLER_TEMP, $payload, [Text.UTF8Encoding]::new($true)); try { & $env:XMR_INSTALLER_TEMP; $exitCode = 0 } catch { Write-Error $_; $exitCode = 1 } finally { Remove-Item -LiteralPath $env:XMR_INSTALLER_TEMP -Force -ErrorAction SilentlyContinue }; exit $exitCode"
 echo.
@@ -85,7 +90,7 @@ function Install-Agent {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     $taskAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$installedScriptPath`" -RunAgent"
     $taskTrigger = New-ScheduledTaskTrigger -AtLogOn -User $identity
-    $taskPrincipal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Limited
+    $taskPrincipal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Highest
     $taskSettings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero)
     Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger -Principal $taskPrincipal -Settings $taskSettings -Description 'Polls the authenticated XMR miner control API for this rig.' -Force | Out-Null
     Start-ScheduledTask -TaskName $taskName
