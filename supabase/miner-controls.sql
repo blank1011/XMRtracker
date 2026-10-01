@@ -7,3 +7,5 @@ create table if not exists public.worker_controls (
 alter table public.worker_controls enable row level security;
 
 revoke all on public.worker_controls from anon, authenticated;
+
+grant select, insert, update on public.worker_controls to service_role;
